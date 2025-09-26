@@ -85,7 +85,7 @@ if p:
         serv = get_filtered_servers(place_id, max_ping=int(ping), max_players=int(players_in_server))
         if serv:
             for s in servers:
-                chart.write("JOBB:" + str(s['jobId'])
+                chart.write("JOBB:" + str(s['jobId']))
                 
         
 
@@ -142,6 +142,7 @@ if p:
             time.sleep(43)
         except Exception as e:
             st.error(e)
+
 
 
 
