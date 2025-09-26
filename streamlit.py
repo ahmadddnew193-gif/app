@@ -18,24 +18,24 @@ def get_server_data(place_id):
     url = f"https://games.roblox.com/v1/games/{place_id}/servers/Public?limit=100"
     return requests.get(url).json().get("data", [])
 
-def get_filtered_servers(place_id, max_ping=9999, max_players=50):
+def get_filtered_servers(place_id, max_ping=9999, max_current_players=10):
     servers = get_server_data(place_id)
     filtered = []
     for server in servers:
         ping = server.get("ping")
-        playing = server.get("playing", 0)
+        current_players = server.get("playing", 0)
         max_players_server = server.get("maxPlayers", 0)
         job_id = server.get("id")
 
-        # Accept servers with missing ping, or high ping if needed
-        if (ping is None or ping <= max_ping) and max_players_server <= max_players:
+        if (ping is None or ping <= max_ping) and current_players <= max_current_players:
             filtered.append({
                 "Job ID": job_id,
                 "Ping (ms)": ping if ping is not None else "Unknown",
-                "Players": playing,
-                "Max Players": max_players_server
+                "Players": current_players,
+                "Max Capacity": max_players_server
             })
     return filtered
+
 
 
 st.set_page_config(page_title="Ro-Live", layout="wide")
@@ -113,6 +113,7 @@ if place_id_input:
 
     except Exception as e:
         st.error(f"Error: {e}")
+
 
 
 
