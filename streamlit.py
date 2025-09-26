@@ -1,13 +1,35 @@
 import streamlit as st
 import pandas as pd
-
 import time
 import requests
-
 import os
 
+def get_filtered_servers(place_id, max_ping=200, max_players=20):
+    url = f"https://games.roblox.com/v1/games/{place_id}/servers/Public?limit=100"
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        servers = response.json().get("data", [])
+    except Exception as e:
+        print(f"Error fetching server data: {e}")
+        return []
 
+    filtered = []
+    for server in servers:
+        ping = server.get("ping")
+        playing = server.get("playing", 0)
+        max_players_server = server.get("maxPlayers", 0)
+        job_id = server.get("id")
 
+        if ping is not None and ping <= max_ping and max_players_server <= max_players:
+            filtered.append({
+                "jobId": job_id,
+                "ping": ping,
+                "playing": playing,
+                "maxPlayers": max_players_server
+            })
+
+    return filtered
 
 
 def get_servers(place_id):
@@ -17,7 +39,15 @@ st.set_page_config(page_title="Ro-Live",layout="wide")
 st.title("Live Player Count")
 p = st.text_input("Place Id")
 
+
+
+
+
+
 if p:
+    st.subheader("Server")
+    ping = st.text_input("Ping (ms)")
+    players_in_server = st.text_input("Players in Server")
     st.session_state["name"]=p
     val = st.session_state.get("name","")
     
@@ -46,6 +76,17 @@ if p:
         st.session_state.time = []
         st.session_state.server = []
         st.session_state.visi = []
+
+
+    if players_in_server:
+        st.write(f"Players entered: {players_in_server}")
+        serv = get_filtered_servers(place_id, max_ping=int(ping), max_players=int(players_in_server))
+        if serv:
+            for s in servers:
+                st.write("JOBID: " + str(s["jobId"]))
+                
+        
+
     t1 =st.empty()
     t = st.empty()
     chart_placeholder = st.empty()
@@ -99,4 +140,5 @@ if p:
             time.sleep(43)
         except Exception as e:
             st.error(e)
+
 
