@@ -1,148 +1,112 @@
 import streamlit as st
 import pandas as pd
-import time
 import requests
-import os
+import time
+from streamlit_autorefresh import st_autorefresh
+
+st_autorefresh(interval=45000, limit=100, key="refresh")
+
+def get_universe_id(place_id):
+    url = f"https://apis.roproxy.com/universes/v1/places/{place_id}/universe"
+    return requests.get(url).json().get("universeId")
+
+def get_game_data(universe_id):
+    url = f"https://games.roproxy.com/v1/games?universeIds={universe_id}"
+    return requests.get(url).json()["data"][0]
+
+def get_server_data(place_id):
+    url = f"https://games.roblox.com/v1/games/{place_id}/servers/Public?limit=100"
+    return requests.get(url).json().get("data", [])
 
 def get_filtered_servers(place_id, max_ping=200, max_players=20):
-    url = f"https://games.roblox.com/v1/games/{place_id}/servers/Public?limit=100"
-    try:
-        response = requests.get(url)
-        response.raise_for_status()
-        servers = response.json().get("data", [])
-    except Exception as e:
-        print(f"Error fetching server data: {e}")
-        return []
-
+    servers = get_server_data(place_id)
     filtered = []
     for server in servers:
         ping = server.get("ping")
         playing = server.get("playing", 0)
         max_players_server = server.get("maxPlayers", 0)
         job_id = server.get("id")
-
         if ping is not None and ping <= max_ping and max_players_server <= max_players:
             filtered.append({
-                "jobId": job_id,
-                "ping": ping,
-                "playing": playing,
-                "maxPlayers": max_players_server
+                "Job ID": job_id,
+                "Ping (ms)": ping,
+                "Players": playing,
+                "Max Players": max_players_server
             })
-
     return filtered
 
-
-def get_servers(place_id):
-    url = f"https://games.roblox.com/v1/games/{place_id}/servers/Public?limit=100"
-    return requests.get(url).json().get("data", [])
-st.set_page_config(page_title="Ro-Live",layout="wide")
+st.set_page_config(page_title="Ro-Live", layout="wide")
 st.title("Live Player Count")
-p = st.text_input("Place Id")
+st.subheader("Server")
 
+place_id_input = st.text_input("Place ID")
+ping_input = st.text_input("Ping Threshold (ms)", value="200")
+players_input = st.text_input("Max Players Threshold", value="20")
 
+if place_id_input:
+    try:
+        place_id = int(place_id_input)
+        universe_id = get_universe_id(place_id)
+        game_data = get_game_data(universe_id)
 
+        st.write(f"**PLACE ID:** {place_id}")
+        st.write(f"**Name:** {game_data.get('name', 'Null')}")
+        st.write(f"**Updated:** {game_data.get('updated', 'NULL')}")
+        st.write(f"**Created:** {game_data.get('created', 'NULL')}")
+        st.write(f"**Visits:** {game_data.get('visits', 'NULL')}")
+        st.write(f"**Creator:** {game_data.get('creator', {}).get('name', 'NULL')}")
+        st.write(f"**Max Players per Server:** {game_data.get('maxPlayers', 'NULL')}")
+        st.write(f"**Favorites:** {game_data.get('favoritedCount', 'NULL')}")
 
+        if ping_input and players_input:
+            max_ping = int(ping_input)
+            max_players = int(players_input)
+            filtered_servers = get_filtered_servers(place_id, max_ping, max_players)
+            st.subheader("Filtered Servers")
+            if filtered_servers:
+                st.dataframe(pd.DataFrame(filtered_servers))
+            else:
+                st.info("No servers matched the criteria.")
 
+        if "player_count" not in st.session_state:
+            st.session_state.player_count = []
+            st.session_state.time = []
+            st.session_state.server = []
+            st.session_state.visits = []
 
-if p:
-    st.subheader("Server")
-    ping = st.text_input("Ping (ms)")
-    players_in_server = st.text_input("Players in Server")
-    st.session_state["name"]=p
-    val = st.session_state.get("name","")
-    
-    place_id = int(val)
-    url = f"https://apis.roproxy.com/universes/v1/places/{place_id}/universe"
+        servers = get_server_data(place_id)
+        total_players = sum([s["playing"] for s in servers])
+        current_data = get_game_data(universe_id)
+        current_visits = current_data.get("visits", 0)
+        current_playing = current_data.get("playing", 0)
+        current_time = pd.to_datetime("now")
 
-    resp = requests.get(url).json()
-    rn = time.time()
-    universe_id = resp["universeId"]
+        st.session_state.player_count.append(current_playing)
+        st.session_state.time.append(current_time)
+        st.session_state.server.append(total_players)
+        st.session_state.visits.append(current_visits)
 
-    url2 = f"https://games.roproxy.com/v1/games?universeIds={universe_id}"
+        st.subheader("Live Charts")
 
-    data = requests.get(url2).json()["data"][0]
+        df_players = pd.DataFrame({
+            "Time": st.session_state.time,
+            "Players": st.session_state.player_count
+        }).set_index("Time")
+        st.line_chart(df_players)
 
-    st.write(f"PLACE ID: {val}")
-    st.write("Name: " + data.get("name","Null"))
-    st.write("Updated: " + data.get("updated","NULL"))
-    st.write("Created: " + data.get("created","NULL"))
-    st.write("Visits: " + str(data.get("visits","NULL")))
-    st.write("Creator: " + data.get("creator",{}).get("name","NULL"))
-    st.write("MAXPLAYERS PER SERVER: " + str(data.get("maxPlayers","NULL")))
-    st.write("Favorites: " + str(data.get("favoritedCount","NULL")))
-    # # st.line_chart(data.get("visits") [rn])
-    if "player_count" not in st.session_state:
-        st.session_state.player_count = []
-        st.session_state.time = []
-        st.session_state.server = []
-        st.session_state.visi = []
-        st.session_state.plr = []
-        st.session_state.id = []
-    chart=st.empty()
+        df_servers = pd.DataFrame({
+            "Time": st.session_state.time,
+            "Total Server Players": st.session_state.server
+        }).set_index("Time")
+        st.line_chart(df_servers)
 
-    if players_in_server:
-        st.write(f"Players entered: {players_in_server}")
-        serv = get_filtered_servers(place_id, max_ping=int(ping), max_players=int(players_in_server))
-        if serv:
-            for s in servers:
-                chart.write("JOBB:" + str(s['jobId']))
-                
-        
+        df_visits = pd.DataFrame({
+            "Time": st.session_state.time,
+            "Visits": st.session_state.visits
+        }).set_index("Time")
+        st.line_chart(df_visits)
 
-    t1 =st.empty()
-    t = st.empty()
-    chart_placeholder = st.empty()
-    t2 = st.empty()
+        st.info("Charts show: active players, total players across servers, and visit count over time.")
 
-    while True:
-        try:
-            serv = get_servers(place_id)
-            pl = [s["playing"] for s in serv]
-            total = sum(pl)
-            url3 = f"https://games.roproxy.com/v1/games?universeIds={universe_id}"
-
-            data1 = requests.get(url3).json()["data"][0]
-            vis = data1.get("visits",0)
-            plr = data1.get("playing",0)
-            ctime = pd.to_datetime("now")
-            st.session_state.player_count.append(plr)
-            st.session_state.time.append(ctime)
-            st.session_state.server.append(total)
-            st.session_state.visi.append(vis)
-            df = pd.DataFrame({
-                "Time": st.session_state.time,
-                "Players": st.session_state.player_count
-
-            })
-            df.set_index("Time",inplace=True)
-            # fig, ax = plt.subplots()
-            # ax.plot(st.session_state.time,st.session_state.player_count)
-            # ax.set_xlabel("Time")
-            # ax.set_ylabel("Visit")
-            chart_placeholder.line_chart(df)
-            # time.sleep(10)
-            # t1.write("Total Players Over Time")
-            df1 = pd.DataFrame({
-                "Time1": st.session_state.time,
-                "Player": st.session_state.server
-
-            })
-            df1.set_index("Time1",inplace=True)
-
-            t.line_chart(df1)
-
-            df2 = pd.DataFrame({
-                "Time2": st.session_state.time,
-                "Visits": st.session_state.visi
-
-            })
-            df2.set_index("Time2",inplace=True)
-            t2.line_chart(df2)
-            t1.info("First Graph is total players over time! the other graph is active players and the other is visits!!")
-            time.sleep(43)
-        except Exception as e:
-            st.error(e)
-
-
-
-
+    except Exception as e:
+        st.error(f"Error: {e}")
