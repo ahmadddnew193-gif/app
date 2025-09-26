@@ -76,14 +76,16 @@ if p:
         st.session_state.time = []
         st.session_state.server = []
         st.session_state.visi = []
-
+        st.session_state.plr = []
+        st.session_state.id = []
+    chart=st.empty()
 
     if players_in_server:
         st.write(f"Players entered: {players_in_server}")
         serv = get_filtered_servers(place_id, max_ping=int(ping), max_players=int(players_in_server))
         if serv:
             for s in servers:
-                st.write("JOBID: " + str(s["jobId"]))
+                chart.write("JOBB:" + str(s['jobId'])
                 
         
 
@@ -140,5 +142,6 @@ if p:
             time.sleep(43)
         except Exception as e:
             st.error(e)
+
 
 
