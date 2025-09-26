@@ -15,7 +15,7 @@ def get_game_data(universe_id):
     return requests.get(url).json()["data"][0]
 
 def get_server_data(place_id):
-    url = f"https://games.roblox.com/v1/games/{place_id}/servers/Public?limit=100"
+    url = f"https://games.roblox.com/v1/games/{place_id}/servers/Public?limit=300"
     return requests.get(url).json().get("data", [])
 
 def get_filtered_servers(place_id, max_ping=9999, max_players=50):
@@ -113,4 +113,5 @@ if place_id_input:
 
     except Exception as e:
         st.error(f"Error: {e}")
+
 
